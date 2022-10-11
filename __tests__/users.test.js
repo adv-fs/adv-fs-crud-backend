@@ -22,7 +22,7 @@ const registerAndLogin = async (userProps = {}) => {
 
   // ...then sign in
   const { email } = user;
-  await agent.post('/api/v1/auth/signin').send({ email, password });
+  await agent.post('/api/v1/auth').send({ email, password });
   return [agent, user];
 };
 
@@ -35,7 +35,7 @@ describe('user routes', () => {
   });
 
   it('creates a new user', async () => {
-    const res = await request(app).post('/api/v1/auth/signup').send(mockUser);
+    const res = await request(app).post('/api/v1/auth').send(mockUser);
     const { email } = mockUser;
 
     expect(res.body).toEqual({
@@ -45,7 +45,7 @@ describe('user routes', () => {
   });
 
   it('signs in an existing user', async () => {
-    await request(app).post('/api/v1/auth/signup').send(mockUser);
+    await request(app).post('/api/v1/auth').send(mockUser);
     const res = await request(app)
       .post('/api/v1/auth/signin')
       .send({ email: 'test@example.com', password: '12345' });
@@ -60,6 +60,7 @@ describe('user routes', () => {
   it('/protected should return the current user if authenticated', async () => {
     const [agent] = await registerAndLogin();
     const res = await agent.get('/api/v1/auth/verify');
+    
     expect(res.status).toEqual(200);
   });
 

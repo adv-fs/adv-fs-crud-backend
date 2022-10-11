@@ -2,12 +2,32 @@ const pool = require('../lib/utils/pool');
 const setup = require('../data/setup');
 const request = require('supertest');
 const app = require('../lib/app');
+const UserService = require('../lib/services/UserService');
 
-const agent = await request(app).agent;
+// Dummy user for testing
+const mockUser = {
+  email: 'test@example.com',
+  password: '12345',
+};
+
+const registerAndLogin = async (userProps = {}) => {
+  const password = userProps.password ?? mockUser.password;
+
+  // Create an "agent" that gives us the ability
+  // to store cookies between requests in a test
+  const agent = request.agent(app);
+
+  // Create a user to sign in with
+  const user = await UserService.create({ ...mockUser, ...userProps });
+  // ...then sign in
+  const { email } = user;
+  await agent.post('/api/v1/auth/signin').send({ email, password });
+  return [agent, user];
+};
+
 const mockItemOne = {
   description: 'One fake item'
 };
-
 const mockItemTwo = {
   description: 'Second fake item'
 };
@@ -22,25 +42,27 @@ describe('user routes', () => {
   });
 
   it('adds a new item to the todos list', async () => {
-    const res = agent.post('/api/v1/shopping').send(mockItemOne);
-    
+    const [agent, user] = await registerAndLogin();
+    const res = await agent.post('/api/v1/shopping').send(mockItemOne);
+
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
       id: expect.any(String),
-      user_id: expect.any(String),
+      user_id: user.id,
       completed: false,
-      ...mockItemOne
+      ...mockItemOne,
     });
   });
 
   it('displays all items in the list', async () => {
-    agent.post('/api/v1/shopping').send(mockItemOne);
-    agent.post('/api/v1/shopping').send(mockItemTwo);
+    const [agent] = await registerAndLogin();
+    await agent.post('/api/v1/shopping').send(mockItemOne);
+    await agent.post('/api/v1/shopping').send(mockItemTwo);
 
-    const res = agent.get('/api/v1/shopping');
+    const res = await agent.get('/api/v1/shopping');
 
     expect(res.status).toBe(200);
-    expect(res.length).toBe(2);
+    expect(res.body.length).toBe(2);
     expect(res.body).toEqual([
       {
         id: expect.any(String),
@@ -58,8 +80,10 @@ describe('user routes', () => {
   });
 
   it('updates completed on an item', async () => {
-    agent.post('/api/v1/shopping').send(mockItemOne);
-    const res = agent.put('/api/v1/shopping/1').send({ completed: true });
+    const [agent] = await registerAndLogin();
+
+    agent.post('/api/v1/shopping/addItem').send(mockItemOne);
+    const res = await agent.put('/api/v1/shopping/1').send({ completed: true });
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
@@ -71,8 +95,10 @@ describe('user routes', () => {
   });
 
   it('deletes an item', async () => {
-    agent.post('/api/v1/shopping').send(mockItemOne);
-    const res = agent.delete('/api/v1/shopping/1');
+    const [agent] = await registerAndLogin();
+
+    agent.post('/api/v1/shopping/addItem').send(mockItemOne);
+    const res = await agent.delete('/api/v1/shopping/1');
 
     expect(res.status).toBe(204);
     expect(res.message).toEqual('Item successfully removed');
