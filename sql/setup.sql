@@ -16,5 +16,5 @@ CREATE TABLE adv_todos (
   user_id BIGINT,
   completed BOOLEAN NOT NULL DEFAULT(FALSE),
   description VARCHAR,
-  FOREIGN KEY (user_id) REFERENCES users(id)
+  FOREIGN KEY (user_id) REFERENCES adv_users(id)
 );
